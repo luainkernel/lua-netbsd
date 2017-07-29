@@ -1,8 +1,8 @@
-/*	$NetBSD: lua.c,v 1.18 2016/07/14 04:00:46 msaitoh Exp $ */
+/*	$NetBSD: lua.c,v 1.23 2017/05/20 09:46:17 mbalmer Exp $ */
 
 /*
+ * Copyright (c) 2011 - 2017 by Marc Balmer <mbalmer@NetBSD.org>.
  * Copyright (c) 2014 by Lourival Vieira Neto <lneto@NetBSD.org>.
- * Copyright (c) 2011 - 2014 by Marc Balmer <mbalmer@NetBSD.org>.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -141,7 +141,8 @@ lua_attach(device_t parent, device_t self, void *aux)
 	mutex_init(&sc->sc_state_lock, MUTEX_DEFAULT, IPL_VM);
 	cv_init(&sc->sc_state_cv, "luastate");
 
-	pmf_device_register(self, NULL, NULL);
+	if (!pmf_device_register(self, NULL, NULL))
+		aprint_error_dev(self, "couldn't establish power handler\n");
 
 	/* Sysctl to provide some control over behaviour */
         sysctl_createv(&sc->sc_log, 0, NULL, &node,
@@ -334,10 +335,12 @@ luaioctl(dev_t dev, u_long cmd, void *data, int flag, struct lwp *l)
 			}
 
 		K = kluaL_newstate(create->name, create->desc, IPL_NONE);
-		K->ks_user = true;
 
 		if (K == NULL)
 			return ENOMEM;
+
+		K->ks_user = true;
+
 		if (lua_verbose)
 			device_printf(sc->sc_dev, "state %s created\n",
 			    create->name);
@@ -400,8 +403,8 @@ luaioctl(dev_t dev, u_long cmd, void *data, int flag, struct lwp *l)
 				if (pb == NULL)
 					return ENOMEM;
 				NDINIT(&nd, LOOKUP, FOLLOW | NOCHROOT, pb);
-				pathbuf_destroy(pb);
 				error = vn_open(&nd, FREAD, 0);
+				pathbuf_destroy(pb);
 				if (error) {
 					if (lua_verbose)
 						device_printf(sc->sc_dev,
@@ -516,6 +519,10 @@ lua_require(lua_State *L)
 					    "require module %s\n",
 					    md->mod_name);
 				luaL_requiref(L, md->mod_name, md->open, 0);
+
+				LIST_FOREACH(m, &s->lua_modules, mod_next)
+					if (m == md)
+						return 1;
 
 				md->refcount++;
 				LIST_INSERT_HEAD(&s->lua_modules, md, mod_next);

@@ -1,4 +1,4 @@
-/*	$NetBSD: ldump.c,v 1.5 2016/01/28 14:41:39 lneto Exp $	*/
+/*	$NetBSD: ldump.c,v 1.8 2017/04/26 13:17:33 mbalmer Exp $	*/
 
 /*
 ** Id: ldump.c,v 2.37 2015/10/08 15:53:49 roberto Exp 

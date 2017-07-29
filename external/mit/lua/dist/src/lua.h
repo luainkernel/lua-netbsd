@@ -1,7 +1,7 @@
-/*	$NetBSD: lua.h,v 1.6 2016/01/28 14:41:39 lneto Exp $	*/
+/*	$NetBSD: lua.h,v 1.10 2017/05/20 10:12:29 mbalmer Exp $	*/
 
 /*
-** Id: lua.h,v 1.329 2015/11/13 17:18:42 roberto Exp 
+** Id: lua.h,v 1.332 2016/12/22 15:51:20 roberto Exp 
 ** Lua - A Scripting Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
@@ -23,21 +23,11 @@
 #define LUA_VERSION_MAJOR	"5"
 #define LUA_VERSION_MINOR	"3"
 #define LUA_VERSION_NUM		503
-#ifndef _KERNEL
-#define LUA_VERSION_RELEASE	"2"
-#else /* _KERNEL */
-#define LUA_VERSION_RELEASE	"2 (kernel)"
-#endif /* _KERNEL */
+#define LUA_VERSION_RELEASE	"4"
 
 #define LUA_VERSION	"Lua " LUA_VERSION_MAJOR "." LUA_VERSION_MINOR
 #define LUA_RELEASE	LUA_VERSION "." LUA_VERSION_RELEASE
-#ifndef _KERNEL
-#define LUA_COPYRIGHT	LUA_RELEASE "  Copyright (C) 1994-2015 Lua.org, PUC-Rio"
-#else /* _KERNEL */
-#define LUA_COPYRIGHT	LUA_RELEASE \
-	"  Copyright (c) 2015-2016, Lourival Vieira Neto <lneto@NetBSD.org>." \
-	"  Copyright (C) 1994-2015 Lua.org, PUC-Rio"
-#endif /* _KERNEL */
+#define LUA_COPYRIGHT	LUA_RELEASE "  Copyright (C) 1994-2017 Lua.org, PUC-Rio"
 #define LUA_AUTHORS	"R. Ierusalimschy, L. H. de Figueiredo, W. Celes"
 
 
@@ -394,7 +384,7 @@ LUA_API void      (lua_setallocf) (lua_State *L, lua_Alloc f, void *ud);
 #define lua_pushliteral(L, s)	lua_pushstring(L, "" s)
 
 #define lua_pushglobaltable(L)  \
-	lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS)
+	((void)lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS))
 
 #define lua_tostring(L,i)	lua_tolstring(L, (i), NULL)
 
@@ -494,9 +484,9 @@ struct lua_Debug {
 
 /******************************************************************************
 #ifdef _KERNEL
-* Copyright (c) 2015-2016, Lourival Vieira Neto <lneto@NetBSD.org>.
+* Copyright (c) 2016-2017, Lourival Vieira Neto <lneto@NetBSD.org>.
 #endif
-* Copyright (C) 1994-2015 Lua.org, PUC-Rio.
+* Copyright (C) 1994-2017 Lua.org, PUC-Rio.
 *
 * Permission is hereby granted, free of charge, to any person obtaining
 * a copy of this software and associated documentation files (the
