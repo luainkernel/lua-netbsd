@@ -1,6 +1,7 @@
 /*	$NetBSD: lua.h,v 1.8 2015/09/06 06:01:02 dholland Exp $ */
 
 /*
+ * Copyright (c) 2017 by Pedro Tammela
  * Copyright (c) 2014 by Lourival Vieira Neto <lneto@NetBSD.org>.
  * Copyright (c) 2011, 2013 Marc Balmer <mbalmer@NetBSD.org>.
  * All rights reserved.
@@ -41,64 +42,59 @@
 #include <sys/condvar.h>
 #endif
 
-#define MAX_LUA_NAME		16
-#define MAX_LUA_DESC		64
-#define LUA_MAX_MODNAME		32
+#define MAX_LUA_NAME		32
 
-struct lua_state_info {
-	char	name[MAX_LUA_NAME];
-	char	desc[MAX_LUA_DESC];
-	bool	user;
-};
-
-struct lua_info {
-	int num_states;		/* total number of created Lua states */
-	struct lua_state_info *states;
-};
-
-struct lua_create {
-	char	name[MAX_LUA_NAME];
-	char	desc[MAX_LUA_DESC];
-};
-
-struct lua_require {
+struct klua_Iowr {
 	char	state[MAX_LUA_NAME];
-	char	module[LUA_MAX_MODNAME];
+	char	str[MAXPATHLEN];
 };
 
-struct lua_load {
-	char	state[MAX_LUA_NAME];
-	char	path[MAXPATHLEN];
+struct info {
+	char name[MAX_LUA_NAME];
+	size_t len;
 };
 
-#define LUAINFO		_IOWR('l', 0, struct lua_info)
-
-#define LUACREATE	_IOWR('l', 1, struct lua_create)
-#define LUADESTROY	_IOWR('l', 2, struct lua_create)
-
-/* 'require' a module in a state */
-#define LUAREQUIRE	_IOWR('l', 3, struct lua_require)
+struct klua_Info {
+	int n;
+	struct info *i;
+};
 
 /* loading Lua code into a Lua state */
-#define LUALOAD		_IOWR('l', 4, struct lua_load)
+#define LUALOAD		_IOWR('l', 0, struct klua_Iowr)
+
+/* creating a Lua state */
+#define LUACREATE       _IOWR('l', 1, struct klua_Iowr)
+
+/* destroying a Lua state */
+#define LUADESTROY      _IOWR('l', 2, struct klua_Iowr)
+
+/* information about the Lua states */
+#define LUAINFO		_IOWR('l', 3, struct klua_Info)
 
 #ifdef _KERNEL
 extern int klua_mod_register(const char *, lua_CFunction);
 extern int klua_mod_unregister(const char *);
 
-typedef struct _klua_State {
-	lua_State	*L;
-	kmutex_t	 ks_lock;
-	bool		 ks_user;	/* state created by user (ioctl) */
-} klua_State;
+struct klua_Wrapper {
+	kmutex_t mtx;
+};
 
-extern void klua_lock(klua_State *);
-extern void klua_unlock(klua_State *);
+extern int klua_state_register(const char *);
+extern int klua_state_unregister(const char *);
 
-extern void klua_close(klua_State *);
-extern klua_State *klua_newstate(lua_Alloc, void *, const char *, const char *,
-		int);
-extern klua_State *kluaL_newstate(const char *, const char *, int);
+extern void *lua_alloc(void *, void *, size_t, size_t);
+
+/* C API */
+extern lua_State *luaL_newstate(void);
+
 #endif
+
+#define luaK_setenv(L, env, type)			\
+do {							\
+	type **p = (type **)lua_getextraspace(L);	\
+	*p = env;					\
+} while (0)						\
+
+#define luaK_getenv(L, type) ((type *)lua_getextraspace(L))
 
 #endif /* _SYS_LUA_H_ */

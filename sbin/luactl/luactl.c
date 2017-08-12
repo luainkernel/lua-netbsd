@@ -1,6 +1,7 @@
 /*	$NetBSD: luactl.c,v 1.2 2013/10/29 16:11:15 joerg Exp $ */
 
 /*
+ * Copyright (c) 2017, Pedro Tammela
  * Copyright (c) 2011, Marc Balmer <mbalmer@NetBSD.org>.
  * All rights reserved.
  *
@@ -51,12 +52,10 @@ int devfd = -1;
 int quiet = 0;
 int docreate = 0;
 
-static void getinfo(void);
 static void create(char *, char *);
 static void destroy(char *);
-
-static void require(char *, char *);
 static void load(char *, char *);
+static void getinfo(void);
 
 static void usage(void) __dead;
 
@@ -88,27 +87,18 @@ main(int argc, char *argv[])
 	if (argc == 0)
 		getinfo();
 	else if (!strcmp(argv[0], "create")) {
-		if (argc == 2)
-			create(argv[1], NULL);
-		else if (argc == 3)
-			create(argv[1], argv[2]);
-		else
+		if (argc != 2)
 			usage();
+		create(argv[1]);
 	} else if (!strcmp(argv[0], "destroy")) {
 		if (argc != 2)
 			usage();
 		destroy(argv[1]);
-	} else if (!strcmp(argv[0], "require")) {
-		if (argc != 3)
-			usage();
-		if (docreate)
-			create(argv[1], NULL);
-		require(argv[1], argv[2]);
 	} else if (!strcmp(argv[0], "load")) {
 		if (argc != 3)
 			usage();
 		if (docreate)
-			create(argv[1], NULL);
+			create(argv[1]);
 		load(argv[1], argv[2]);
 	} else
 		usage();
@@ -119,41 +109,32 @@ main(int argc, char *argv[])
 static void
 getinfo(void)
 {
-	struct lua_info info;
+	struct klua_Info info;
 	int n;
 
-	info.states = NULL;
+	info.i = NULL;
 	if (ioctl(devfd, LUAINFO, &info) == -1)
 		err(EXIT_FAILURE, "LUAINFO");
 
-	if (info.num_states > 0) {
-		info.states = calloc(info.num_states,
-		    sizeof(struct lua_state_info));
-		if (info.states == NULL)
+	if (info.n > 0) {
+		info.i = calloc(info.n, sizeof(struct info));
+		if (info.i == NULL)
 			err(EXIT_FAILURE, "calloc");
 		if (ioctl(devfd, LUAINFO, &info) == -1)
 			err(EXIT_FAILURE, "LUAINFO");
 	}
-	printf("%d active state%s:\n", info.num_states,
-	    info.num_states == 1 ? "" : "s");
-	if (info.num_states > 0)
-		printf("%-16s %-8s Description\n", "Name", "Creator");
-	for (n = 0; n < info.num_states; n++)
-		printf("%-16s %-8s %s\n", info.states[n].name,
-		    info.states[n].user == true ? "user" : "kernel",
-		    info.states[n].desc);
+	if (info.n > 0)
+		printf("%-16s", "Name");
+	for (n = 0; n < info.n; n++)
+		printf("%-16s \n", info.i[n].name);
 }
 
 static void
-create(char *name, char *desc)
+create(char *name)
 {
-	struct lua_create cr;
+	struct klua_Iowr cr;
 
-	strlcpy(cr.name, name, sizeof(cr.name));
-	if (desc != NULL)
-		strlcpy(cr.desc, desc, sizeof(cr.desc));
-	else
-		cr.desc[0] = '\0';
+	strlcpy(cr.state, name, sizeof(cr.state));
 
 	if (ioctl(devfd, LUACREATE, &cr) == -1)
 		err(EXIT_FAILURE, "LUACREATE");
@@ -167,9 +148,9 @@ create(char *name, char *desc)
 static void
 destroy(char *name)
 {
-	struct lua_create cr;
+	struct klua_Iowr cr;
 
-	strlcpy(cr.name, name, sizeof(cr.name));
+	strlcpy(cr.state, name, sizeof(cr.state));
 
 	if (ioctl(devfd, LUADESTROY, &cr) == -1)
 		err(EXIT_FAILURE, "LUADESTROY");
@@ -181,29 +162,12 @@ destroy(char *name)
 }
 
 static void
-require(char *name, char *module)
-{
-	struct lua_require r;
-
-	strlcpy(r.state, name, sizeof(r.state));
-	strlcpy(r.module, module, sizeof(r.module));
-
-	if (ioctl(devfd, LUAREQUIRE, &r) == -1)
-		err(EXIT_FAILURE, "LUAREQUIRE");
-
-	if (quiet)
-		return;
-
-	printf("%s required by %s\n", module, name);
-}
-
-static void
 load(char *name, char *path)
 {
-	struct lua_load l;
+	struct klua_Iowr l;
 
 	strlcpy(l.state, name, sizeof(l.state));
-	strlcpy(l.path, path, sizeof(l.path));
+	strlcpy(l.str, path, sizeof(l.str));
 
 	if (ioctl(devfd, LUALOAD, &l) == -1)
 		err(EXIT_FAILURE, "LUALOAD");
@@ -223,7 +187,6 @@ usage(void)
 	fprintf(stderr, "usage: %s [-cq]\n", p);
 	fprintf(stderr, "       %s [-cq] create name [desc]\n", p);
 	fprintf(stderr, "       %s [-cq] destroy name\n", p);
-	fprintf(stderr, "       %s [-cq] require name module\n", p);
 	fprintf(stderr, "       %s [-cq] load name path\n", p);
 
 	exit(EXIT_FAILURE);

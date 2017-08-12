@@ -567,6 +567,18 @@ static int searcher_preload (lua_State *L) {
   return 1;
 }
 
+#ifdef _KERNEL
+static int searcher_Kmod (lua_State *L) {
+  const char *name = luaL_checkstring(L, 1);
+  if (lua_getfield(L, LUA_REGISTRYINDEX, "kmod_loader") != LUA_TFUNCTION) {
+    lua_pushstring(L, "\n\tno kernel module loader");
+    return 1;
+  }
+  lua_pushvalue(L, 1);
+  lua_call(L, 1, 2);
+  return 1;
+}
+#endif
 
 static void findloader (lua_State *L, const char *name) {
   int i;
@@ -734,7 +746,11 @@ static const luaL_Reg ll_funcs[] = {
 
 static void createsearcherstable (lua_State *L) {
   static const lua_CFunction searchers[] =
+#ifndef _KERNEL
     {searcher_preload, searcher_Lua, searcher_C, searcher_Croot, NULL};
+#else
+    {searcher_Kmod, NULL};
+#endif
   int i;
   /* create 'searchers' table */
   lua_createtable(L, sizeof(searchers)/sizeof(searchers[0]) - 1, 0);
